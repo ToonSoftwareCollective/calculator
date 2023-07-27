@@ -30,9 +30,9 @@ Screen {
     property int binaryMode     : 1
     property int hexadecimalMode: 2
     property int conversionMode: decimalMode
-    
+
     property int openParenthesesLeft : 0    // used to avoid too many close parentheses and wrong order of parentheses
-    
+
 // ---------------------------------------------------------------------
 /*
     onOpenParenthesesLeftChanged: {
@@ -61,6 +61,7 @@ Screen {
 
     function deleteLastChar() {
         evalString = evalString.slice(0, evalString.length - 1)
+        openParenthesesLeft = countParenthesesLeft()
         correctionNeeded=false
         updateFields()
     }
@@ -107,6 +108,7 @@ Screen {
                     if ( check.match(regex) ) { evalString = text.trim() }
                 }
             }
+            openParenthesesLeft = countParenthesesLeft()
             correctionNeeded=false
             updateFields()
         }
@@ -171,12 +173,12 @@ Screen {
                         if ( ( checks.indexOf(evalString.slice(-1))  == -1 ) ||
                         ( ( value == "-" ) && ( evalString.slice(-1) != "-" ) ) ) {
                             evalString += value
-                            if ( value == ")" ) { openParenthesesLeft-- } 
                         } else {
                             app.log("can not add >"+value+"< to >"+evalString+"< because last character >"+evalString.slice(-1)+"< is in >"+checks+"<")
                         }
                     }
                 }
+                openParenthesesLeft = countParenthesesLeft()
             } else {
 // binary and hexadecimal screens have no way to enter invalid data so just add the value
                 if (evalString.indexOf("Error") == -1 ) {evalString += value}
@@ -186,13 +188,26 @@ Screen {
     }
 
 // ---------------------------------------------------------------------
+    
+    function countParenthesesLeft() {
+        var i = 0
+        var openParenthesesLeft = 0
+        while ( i < evalString.length ) {
+            if      (evalString.charAt(i) == "(" ) { openParenthesesLeft++ }
+            else if (evalString.charAt(i) == ")" ) { openParenthesesLeft-- }
+            i++
+        }
+        return openParenthesesLeft
+    }
+
+// ---------------------------------------------------------------------
 
     function evaluateExpression() {
         inputEnabled=false
 // if evalString is not empty, in Error and counts of ( and ) are equal
-        if ( (evalString != "")
-            && (! correctionNeeded )
-            && ( evalString.split("(").length  == evalString.split(")").length ) ) {
+        if   ( ( evalString != "" )
+            && ( ! correctionNeeded )
+            && ( openParenthesesLeft == 0) ) {
             try {
 
 // try to build and execute a valid javascript formula from evalString
@@ -218,7 +233,7 @@ Screen {
                 javaString=javaString.split("pi").join("Math.PI")
                 javaString=javaString.split("V(").join("Math.sqrt(")
                 javaString=javaString.split("x^y(").join("Math.pow(")
-// swap the next 2 lines and you better prepare for strange results due to replacement of the string 'log' 8-) 
+// swap the next 2 lines and you better prepare for strange results due to replacement of the string 'log' 8-)
                 javaString=javaString.split("log(").join("1/Math.log(10)*Math.log(")
                 javaString=javaString.split("ln(").join("Math.log(")
 
@@ -264,7 +279,7 @@ Screen {
 //                evalString = evalStringOrg+" Error"
                 correctionNeeded=true
             }
-        }
+        } else { if ( evalString != "" ) { correctionNeeded = true }  }
         updateFields()
     }
 
@@ -274,7 +289,7 @@ Screen {
         if (evalString != "") {
             var negativeConversionValue = ( evalString.substring(0,1) == "-" )
             if (negativeConversionValue) { evalString = evalString.substring(1) }
- 
+
             if (conversionMode == hexadecimalMode) (evalString=hexToDec(evalString).toString())
             if (conversionMode == binaryMode) (evalString=binToDec(evalString).toString())
 
@@ -435,7 +450,7 @@ Screen {
                         var evalStringOld=evalString
                         var answerOld=answer
                         evaluateExpression()
-                        if (! correctionNeeded ) { 
+                        if (! correctionNeeded ) {
                             memory=evalString
                         }
                         evalString=evalStringOld
@@ -457,7 +472,7 @@ Screen {
                         if (memory == "" ) {memory=0}
                         evalString="memory+("+evalString+")"
                         evaluateExpression()
-                        if (! correctionNeeded ) { 
+                        if (! correctionNeeded ) {
                             memory=answer
                         }
                         evalString=evalStringOld
@@ -479,7 +494,7 @@ Screen {
                         if (memory == "" ) {memory=0}
                         evalString="memory-("+evalString+")"
                         evaluateExpression()
-                        if (! correctionNeeded ) { 
+                        if (! correctionNeeded ) {
                             memory=answer
                         }
                         evalString=evalStringOld
@@ -520,7 +535,6 @@ Screen {
                     if (conversionMode == decimalMode) {
                         if (second.selected) { appendToExpression(buttonText.split("\n")[1]+"(") }
                         else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
-                        openParenthesesLeft++
                     } else {
                         appendToExpression(buttonText)
                     }
@@ -537,7 +551,6 @@ Screen {
                     if (conversionMode == decimalMode) {
                         if (second.selected) { appendToExpression(buttonText.split("\n")[1]+"(") }
                         else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
-                        openParenthesesLeft++
                     } else {
                         appendToExpression(buttonText)
                     }
@@ -554,7 +567,6 @@ Screen {
                     if (conversionMode == decimalMode) {
                         if (second.selected) { appendToExpression(buttonText.split("\n")[1]+"(") }
                         else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
-                        openParenthesesLeft++
                     } else {
                         appendToExpression(buttonText)
                     }
@@ -587,7 +599,6 @@ Screen {
                 onClicked       : {
                     if (conversionMode == decimalMode) {
                         appendToExpression(buttonText+"(")
-                        openParenthesesLeft++
                     } else {
                         appendToExpression(buttonText)
                     }
@@ -602,7 +613,6 @@ Screen {
                 onClicked       : {
                     if (conversionMode == decimalMode) {
                         appendToExpression(buttonText+"(")
-                        openParenthesesLeft++
                     } else {
                         appendToExpression(buttonText)
                     }
@@ -673,7 +683,7 @@ Screen {
                 buttonText      : (conversionMode == decimalMode) ? "(" : ""
                 width           : parent.width / gridColumns
                 height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) { appendToExpression("(") ; openParenthesesLeft++ }
+                onClicked       : if (conversionMode == decimalMode) { appendToExpression("(") }
             }
 
             YaLabelCalculator {
@@ -682,9 +692,7 @@ Screen {
                 width           : parent.width / gridColumns
                 height          : parent.height / gridRows
                 onClicked       : {
-                    if ( (conversionMode == decimalMode) && (evalString != "") && (openParenthesesLeft > 0 ) ) { 
-                        appendToExpression(")") 
-                    }
+                    if ( (conversionMode == decimalMode) && (evalString != "") && (openParenthesesLeft > 0 ) ) { appendToExpression(")") }
                 }
             }
 
@@ -772,17 +780,17 @@ Screen {
                 buttonText      : "0"
                 width           : parent.width / gridColumns
                 height          : parent.height / gridRows
-                onClicked       : { 
+                onClicked       : {
                     if (conversionMode == decimalMode) {
-                        if (! (/[0-9]e[+-]$/.test(evalString)) ) {
+                        if (! (/[0-9]e[+-]$/.test(evalString)) ) {  // do not allow a 0 after e+ or e- of scientific notation
                             if ( (evalString == "") || (evalString == "0") )    { evalString = "0." }
-                            else if ( /[(*/+-,]$/.test(evalString) )            { evalString+= "0." } 
-                            else if ( /[)ei]$/.test(evalString) )               { evalString+= "*0."} 
+                            else if ( /[(*/+-,]$/.test(evalString) )            { evalString+= "0." }
+                            else if ( /[)ei]$/.test(evalString) )               { evalString+= "*0."}
                             else                                                { evalString+= "0"  }
                             updateFields()
                         }
                         else {app.log("skip "+evalString.slice(-3)) }
-                    } else { appendToExpression("0") }                     
+                    } else { appendToExpression("0") }
                 }
             }
 
@@ -852,7 +860,7 @@ Screen {
                             evalString="V("+evalString+")"
                             evaluateExpression()
                         }
-                    } else { appendToExpression("V(") ; openParenthesesLeft++ }
+                    } else { appendToExpression("V(")  }
                 }
             }
 
@@ -862,8 +870,8 @@ Screen {
                 buttonText      : (conversionMode == decimalMode) ? "x^y(x,y)  , ->" : ""
                 width           : parent.width / gridColumns
                 height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) 
-                        { powerComma.selected=true ; powerComma.enabled=true ; appendToExpression("x^y(") ; openParenthesesLeft++ }
+                onClicked       : if (conversionMode == decimalMode)
+                        { powerComma.selected=true ; powerComma.enabled=true ; appendToExpression("x^y(") }
             }
 
             YaLabelCalculator {
@@ -908,8 +916,8 @@ Screen {
 
 		var fractional = dec - integral
 
-		// Conversion of integral 
-        
+		// Conversion of integral
+
 		while (integral > 0)
 		{
 			var rem = integral % 2
@@ -922,9 +930,9 @@ Screen {
 		}
 
         if (fractional > 0 ) {
-         
+
             bin += (".");
-            
+
             while ( ( fractional > 0 ) && (precision-- > 0) )
             {
                 // Find next bit in fraction
@@ -943,7 +951,7 @@ Screen {
             }
 
         }
-        
+
 // make sure we get at leat a 0 ( before the . )
 
         if ( (bin == "" ) || (bin.slice(0,1) == "." ) ) { bin = "0"+bin }
@@ -960,12 +968,12 @@ Screen {
 		var dec = 0
 
         var toadd = 1
-        
+
         for ( var i = left.length - 1 ; i >= 0; i-- ) {
             dec = dec + toadd*left.substring(i,i+1)
             toadd = toadd * 2
         }
-        
+
         if (bin.indexOf(".") > -1)  {
             toadd = 0.5
             var right = bin.split(".")[1]
