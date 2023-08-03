@@ -784,7 +784,7 @@ Screen {
                     if (conversionMode == decimalMode) {
                         if (! (/[0-9]e[+-]$/.test(evalString)) ) {  // do not allow a 0 after e+ or e- of scientific notation
                             if ( (evalString == "") || (evalString == "0") )    { evalString = "0." }
-                            else if ( /[(*/+-,]$/.test(evalString) )            { evalString+= "0." }
+                            else if ( /[(*/+\-,]$/.test(evalString) )            { evalString+= "0." }
                             else if ( /[)ei]$/.test(evalString) )               { evalString+= "*0."}
                             else                                                { evalString+= "0"  }
                             updateFields()

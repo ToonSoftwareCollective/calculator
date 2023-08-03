@@ -1,3 +1,5 @@
+1.0.2
+- disabled input of - followed by more than 1 zero
 1.0.1
 - improved input error prevention
 1.0.0
