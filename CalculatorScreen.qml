@@ -26,6 +26,8 @@ Screen {
 
     property bool correctionNeeded: false   // some error
 
+    property bool secondButtonSelected : false
+
     property int decimalMode    : 0
     property int binaryMode     : 1
     property int hexadecimalMode: 2
@@ -33,12 +35,6 @@ Screen {
 
     property int openParenthesesLeft : 0    // used to avoid too many close parentheses and wrong order of parentheses
 
-// ---------------------------------------------------------------------
-/*
-    onOpenParenthesesLeftChanged: {
-        app.log("openParenthesesLeft : "+openParenthesesLeft)
-    }
-*/
 // ---------------------------------------------------------------------
 
     Timer {
@@ -78,7 +74,7 @@ Screen {
 // ---------------------------------------------------------------------
 
     function updateFields() {
-        second.selected = false         // unhighlight '2nd' button
+        secondButtonSelected = false         // unhighlight '2nd' button
         if (evalString.length > 64 )    // sometimes a binary string is very long and I show it in 2 parts split by the .
              {evaluation.buttonText = evalString.substring(0,evalString.indexOf(".")+1) + "\n" + evalString.substring(evalString.indexOf(".")+1 ) }
         else {evaluation.buttonText = evalString }
@@ -392,513 +388,729 @@ Screen {
             horizontalCenter    : parent.horizontalCenter
         }
 
-        Grid {
-            id: layout
-            rows                : gridRows
-            columns             : gridColumns
-            anchors.fill        : parent
-
-            YaLabelCalculator {
+        YaLabelCalculator {
+            id              : clearButton
 //                enabled         : inputEnabled
-                buttonText      : "Clear"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                buttonActiveColor : ( correctionNeeded ) ? "lightgrey" : "grey"
-                onClicked       : clearAll()
+            buttonText      : "Clear"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            buttonActiveColor : ( correctionNeeded ) ? "lightgrey" : "grey"
+            anchors {
+                top         : parent.top
+                left        : parent.left
             }
+            onClicked       : clearAll()
+        }
 
-            YaLabelCalculator {
+        YaLabelCalculator {
+            id              : delButton
 //                enabled         : inputEnabled
-                buttonText      : "Del"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                buttonActiveColor : ( correctionNeeded ) ? "lightgrey" : "grey"
-                onClicked       : deleteLastChar()
+            buttonText      : "Del"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            buttonActiveColor : ( correctionNeeded ) ? "lightgrey" : "grey"
+            anchors {
+                top         : parent.top
+                left        : clearButton.right
             }
+            onClicked       : deleteLastChar()
+        }
 
-            YaLabelCalculator {
-                buttonText      : "Dec"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                selected        : ( ( conversionMode == decimalMode ) && (! correctionNeeded) )
-                onClicked       : { if (! correctionNeeded ) { convertToDecimal() } }
+        YaLabelCalculator {
+            id              : decButton
+            buttonText      : "Dec"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            buttonActiveColor : ( ! correctionNeeded && ( conversionMode ==  decimalMode ) ) ? "lightgrey" : "grey"
+            anchors {
+                top         : parent.top
+                left        : delButton.right
             }
+            onClicked       : { if (! correctionNeeded ) { convertToDecimal() } }
+        }
 
-            YaLabelCalculator {
-                buttonText      : "Hex"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                selected        : ( conversionMode == hexadecimalMode )
-                onClicked       : { if (! correctionNeeded ) { convertToHexadecimal() } }
+        YaLabelCalculator {
+            id              : hexButton
+            buttonText      : "Hex"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            buttonActiveColor : ( ! correctionNeeded && ( conversionMode ==  hexadecimalMode ) ) ? "lightgrey" : "grey"
+            anchors {
+                top         : parent.top
+                left        : decButton.right
             }
+            onClicked       : { if (! correctionNeeded ) { convertToHexadecimal() } }
+        }
 
-            YaLabelCalculator {
-                buttonText      : "Bin"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                selected        : ( conversionMode == binaryMode )
-                onClicked       : { if (! correctionNeeded ) { convertToBinary() } }
+        YaLabelCalculator {
+            id              : binButton
+            buttonText      : "Bin"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            buttonActiveColor : ( ! correctionNeeded && ( conversionMode ==  binaryMode ) ) ? "lightgrey" : "grey"
+            anchors {
+                top         : parent.top
+                left        : hexButton.right
             }
+            onClicked       : { if (! correctionNeeded ) { convertToBinary() } }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "M" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        var evalStringOld=evalString
-                        var answerOld=answer
-                        evaluateExpression()
-                        if (! correctionNeeded ) {
-                            memory=evalString
-                        }
-                        evalString=evalStringOld
-                        answer=answerOld
-                        updateFields()
+        YaLabelCalculator {
+            id              : mButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "M" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : clearButton.bottom
+                left        : clearButton.left
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    var evalStringOld=evalString
+                    var answerOld=answer
+                    evaluateExpression()
+                    if (! correctionNeeded ) {
+                        memory=evalString
                     }
+                    evalString=evalStringOld
+                    answer=answerOld
+                    updateFields()
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "M+" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (( conversionMode == decimalMode) && (evalString != "")){
-                        var evalStringOld=evalString
-                        var answerOld=answer
-                        if (memory == "" ) {memory=0}
-                        evalString="memory+("+evalString+")"
-                        evaluateExpression()
-                        if (! correctionNeeded ) {
-                            memory=answer
-                        }
-                        evalString=evalStringOld
-                        answer=answerOld
-                        updateFields()
+        YaLabelCalculator {
+            id              : mplusButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "M+" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : clearButton.bottom
+                left        : mButton.right
+            }
+            onClicked       : {
+                if (( conversionMode == decimalMode) && (evalString != "")){
+                    var evalStringOld=evalString
+                    var answerOld=answer
+                    if (memory == "" ) {memory=0}
+                    evalString="memory+("+evalString+")"
+                    evaluateExpression()
+                    if (! correctionNeeded ) {
+                        memory=answer
                     }
+                    evalString=evalStringOld
+                    answer=answerOld
+                    updateFields()
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "M-" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (( conversionMode == decimalMode) && (evalString != "")){
-                        var evalStringOld=evalString
-                        var answerOld=answer
-                        if (memory == "" ) {memory=0}
-                        evalString="memory-("+evalString+")"
-                        evaluateExpression()
-                        if (! correctionNeeded ) {
-                            memory=answer
-                        }
-                        evalString=evalStringOld
-                        answer=answerOld
-                        updateFields()
+        YaLabelCalculator {
+            id              : mminButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "M-" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : clearButton.bottom
+                left        : mplusButton.right
+            }
+            onClicked       : {
+                if (( conversionMode == decimalMode) && (evalString != "")){
+                    var evalStringOld=evalString
+                    var answerOld=answer
+                    if (memory == "" ) {memory=0}
+                    evalString="memory-("+evalString+")"
+                    evaluateExpression()
+                    if (! correctionNeeded ) {
+                        memory=answer
                     }
+                    evalString=evalStringOld
+                    answer=answerOld
+                    updateFields()
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "MR" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) { appendToExpression("(memory)"); updateFields() }
+        YaLabelCalculator {
+            id              : mrButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "MR" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : clearButton.bottom
+                left        : mminButton.right
             }
+            onClicked       : if (conversionMode == decimalMode) { appendToExpression("(memory)"); updateFields() }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "MC" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        memory=""
-                        updateFields()
-                    }
+        YaLabelCalculator {
+            id              : mcButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "MC" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : clearButton.bottom
+                left        : mrButton.right
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    memory=""
+                    updateFields()
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "sin\nasin\n" : (conversionMode == hexadecimalMode) ? "A" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                lineHeightSize  : 0.6
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        if (second.selected) { appendToExpression(buttonText.split("\n")[1]+"(") }
-                        else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
-                    } else {
-                        appendToExpression(buttonText)
-                    }
+        YaLabelCalculator {
+            id              : sinAButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "sin\nasin\n" : (conversionMode == hexadecimalMode) ? "A" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            lineHeightSize  : 0.6
+            anchors {
+                top         : mButton.bottom
+                left        : mButton.left
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    if (secondButtonSelected) { appendToExpression(buttonText.split("\n")[1]+"(") }
+                    else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
+                } else {
+                    appendToExpression(buttonText)
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "cos\nacos\n" : (conversionMode == hexadecimalMode) ? "B" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                lineHeightSize  : 0.6
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        if (second.selected) { appendToExpression(buttonText.split("\n")[1]+"(") }
-                        else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
-                    } else {
-                        appendToExpression(buttonText)
-                    }
+        YaLabelCalculator {
+            id              : cosBButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "cos\nacos\n" : (conversionMode == hexadecimalMode) ? "B" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            lineHeightSize  : 0.6
+            anchors {
+                top         : mButton.bottom
+                left        : sinAButton.right
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    if (secondButtonSelected) { appendToExpression(buttonText.split("\n")[1]+"(") }
+                    else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
+                } else {
+                    appendToExpression(buttonText)
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "tan\natan\n" : (conversionMode == hexadecimalMode) ? "C" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                lineHeightSize  : 0.6
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        if (second.selected) { appendToExpression(buttonText.split("\n")[1]+"(") }
-                        else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
-                    } else {
-                        appendToExpression(buttonText)
-                    }
+        YaLabelCalculator {
+            id              : tanCButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "tan\natan\n" : (conversionMode == hexadecimalMode) ? "C" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            lineHeightSize  : 0.6
+            anchors {
+                top         : mButton.bottom
+                left        : cosBButton.right
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    if (secondButtonSelected) { appendToExpression(buttonText.split("\n")[1]+"(") }
+                    else                 { appendToExpression(buttonText.split("\n")[0]+"(") }
+                } else {
+                    appendToExpression(buttonText)
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? (isRadians ? "Rad" : "Deg") : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
+        YaLabelCalculator {
+            id              : radDegButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? (isRadians ? "Rad" : "Deg") : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
 //                onClicked       : { if (conversionMode == decimalMode) { isRadians = ! isRadians ; updateFields() } }
-                onClicked       : { if (conversionMode == decimalMode) { isRadians = ! isRadians } }
+            anchors {
+                top         : mButton.bottom
+                left        : tanCButton.right
             }
+            onClicked       : { if (conversionMode == decimalMode) { isRadians = ! isRadians } }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                id              : second
-                buttonText      : (conversionMode == decimalMode) ? "2nd" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : { if (conversionMode == decimalMode)  { selected = ! selected } }
+        YaLabelCalculator {
+            id              : secondButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "2nd" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            buttonActiveColor : ( secondButtonSelected ) ? "lightgrey" : "grey"
+            anchors {
+                top         : mButton.bottom
+                left        : radDegButton.right
             }
+            onClicked       : { if (conversionMode == decimalMode)  { secondButtonSelected = ! secondButtonSelected } }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "log" : (conversionMode == hexadecimalMode) ? "D" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        appendToExpression(buttonText+"(")
-                    } else {
-                        appendToExpression(buttonText)
-                    }
+        YaLabelCalculator {
+            id              : logDButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "log" : (conversionMode == hexadecimalMode) ? "D" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sinAButton.bottom
+                left        : sinAButton.left
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    appendToExpression(buttonText+"(")
+                } else {
+                    appendToExpression(buttonText)
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "ln" : (conversionMode == hexadecimalMode) ? "E" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        appendToExpression(buttonText+"(")
-                    } else {
-                        appendToExpression(buttonText)
-                    }
+        YaLabelCalculator {
+            id              : lnEButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "ln" : (conversionMode == hexadecimalMode) ? "E" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sinAButton.bottom
+                left        : logDButton.right
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    appendToExpression(buttonText+"(")
+                } else {
+                    appendToExpression(buttonText)
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "e" : (conversionMode == hexadecimalMode) ? "F" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode)  {
-                        appendToExpression("e")
-                    } else {
-                        appendToExpression(buttonText)
-                    }
+        YaLabelCalculator {
+            id              : eFButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "e" : (conversionMode == hexadecimalMode) ? "F" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sinAButton.bottom
+                left        : lnEButton.right
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode)  {
+                    appendToExpression("e")
+                } else {
+                    appendToExpression(buttonText)
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "π" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) {  appendToExpression("pi") }
+        YaLabelCalculator {
+            id              : piButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "π" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sinAButton.bottom
+                left        : eFButton.right
             }
+            onClicked       : if (conversionMode == decimalMode) {  appendToExpression("pi") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "1/x" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if ( (conversionMode == decimalMode) && (evalString != "") ) {
-                        evalString="1/("+evalString+")"
-                        evaluateExpression()
-                    }
+        YaLabelCalculator {
+            id              : reverseButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "1/x" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sinAButton.bottom
+                left        : piButton.right
+            }
+            onClicked       : {
+                if ( (conversionMode == decimalMode) && (evalString != "") ) {
+                    evalString="1/("+evalString+")"
+                    evaluateExpression()
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "7" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("7") }
+        YaLabelCalculator {
+            id              : sevenButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "7" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : logDButton.bottom
+                left        : logDButton.left
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("7") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "8" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("8") }
+        YaLabelCalculator {
+            id              : eightButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "8" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : logDButton.bottom
+                left        : sevenButton.right
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("8") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "9" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("9") }
+        YaLabelCalculator {
+            id              : nineButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "9" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : logDButton.bottom
+                left        : eightButton.right
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("9") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "(" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) { appendToExpression("(") }
+        YaLabelCalculator {
+            id              : boButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "(" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : logDButton.bottom
+                left        : nineButton.right
             }
+            onClicked       : if (conversionMode == decimalMode) { appendToExpression("(") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? ")" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if ( (conversionMode == decimalMode) && (evalString != "") && (openParenthesesLeft > 0 ) ) { appendToExpression(")") }
-                }
+        YaLabelCalculator {
+            id              : bcButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? ")" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : logDButton.bottom
+                left        : boButton.right
             }
+            onClicked       : {
+                if ( (conversionMode == decimalMode) && (evalString != "") && (openParenthesesLeft > 0 ) ) { appendToExpression(")") }
+            }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "4" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("4") }
+        YaLabelCalculator {
+            id              : fourButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "4" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sevenButton.bottom
+                left        : sevenButton.left
             }
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "5" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("5") }
-            }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("4") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "6" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("6") }
+        YaLabelCalculator {
+            id              : fiveButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "5" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sevenButton.bottom
+                left        : fourButton.right
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("5") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "*" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if ( (conversionMode == decimalMode) && (evalString != "") ) { appendToExpression("*") }
+        YaLabelCalculator {
+            id              : sixButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "6" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sevenButton.bottom
+                left        : fiveButton.right
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("6") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "/" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if ( (conversionMode == decimalMode) && (evalString != "") ) { appendToExpression("/") }
+        YaLabelCalculator {
+            id              : multiplyButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "*" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sevenButton.bottom
+                left        : sixButton.right
             }
+            onClicked       : if ( (conversionMode == decimalMode) && (evalString != "") ) { appendToExpression("*") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : "1"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : appendToExpression("1")
+        YaLabelCalculator {
+            id              : devideButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "/" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : sevenButton.bottom
+                left        : multiplyButton.right
             }
+            onClicked       : if ( (conversionMode == decimalMode) && (evalString != "") ) { appendToExpression("/") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "2" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("2") }
+        YaLabelCalculator {
+            id              : oneButton
+            enabled         : inputEnabled
+            buttonText      : "1"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : fourButton.bottom
+                left        : fourButton.left
             }
+            onClicked       : appendToExpression("1")
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode != binaryMode) ? "3" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode != binaryMode) { appendToExpression("3") }
+        YaLabelCalculator {
+            id              : twoButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "2" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : fourButton.bottom
+                left        : oneButton.right
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("2") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "+" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) { appendToExpression("+") }
+        YaLabelCalculator {
+            id              : threeButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode != binaryMode) ? "3" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : fourButton.bottom
+                left        : twoButton.right
             }
+            onClicked       : if (conversionMode != binaryMode) { appendToExpression("3") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "-" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) { appendToExpression("-") }
+        YaLabelCalculator {
+            id              : plusButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "+" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : fourButton.bottom
+                left        : threeButton.right
             }
+            onClicked       : if (conversionMode == decimalMode) { appendToExpression("+") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : "0"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        if (! (/[0-9]e[+-]$/.test(evalString)) ) {  // do not allow a 0 after e+ or e- of scientific notation
-                            if ( (evalString == "") || (evalString == "0") )    { evalString = "0." }
-                            else if ( /[(*/+\-,]$/.test(evalString) )            { evalString+= "0." }
-                            else if ( /[)ei]$/.test(evalString) )               { evalString+= "*0."}
-                            else                                                { evalString+= "0"  }
-                            updateFields()
-                        }
-                        else {app.log("skip "+evalString.slice(-3)) }
-                    } else { appendToExpression("0") }
-                }
+        YaLabelCalculator {
+            id              : minusButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "-" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : fourButton.bottom
+                left        : plusButton.right
             }
+            onClicked       : if (conversionMode == decimalMode) { appendToExpression("-") }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : "."
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                pixelsizeoverride     : true
-                pixelsizeoverridesize : isNxt ? 40 : 32
-                onClicked       : {
-                // if evalString does not already end with a number conating a .
-                    if (! /[0-9]*\.[0-9]*$/.test(evalString) ) { appendToExpression(".") }
-                }
+        YaLabelCalculator {
+            id              : zeroButton
+            enabled         : inputEnabled
+            buttonText      : "0"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : oneButton.bottom
+                left        : oneButton.left
             }
-
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "=" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if (conversionMode == decimalMode) {
-                        evaluateExpression()
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    if (! (/[0-9]e[+-]$/.test(evalString)) ) {  // do not allow a 0 after e+ or e- of scientific notation
+                        if ( (evalString == "") || (evalString == "0") )    { evalString = "0." }  // evalstring == "" "0"
+                        else if ( /[(*/+\-,]$/.test(evalString) )           { evalString+= "0." }  // ends with * / + - ,
+                        else if ( /[)ei]$/.test(evalString) )               { evalString+= "*0."}  // ends with ) e pi
+                        else                                                { evalString+= "0"  }
                         updateFields()
                     }
+                    else {app.log("skip "+evalString.slice(-3)) }
+                } else { appendToExpression("0") }
+            }
+        }
+
+        YaLabelCalculator {
+            id              : dotButton
+            enabled         : inputEnabled
+            buttonText      : "."
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            pixelsizeoverride     : true
+            pixelsizeoverridesize : isNxt ? 40 : 32
+            anchors {
+                top         : oneButton.bottom
+                left        : zeroButton.right
+            }
+            onClicked       : {
+            // if evalString does not already end with a number conating a .
+                if (! /[0-9]*\.[0-9]*$/.test(evalString) ) { appendToExpression(".") }
+            }
+        }
+
+        YaLabelCalculator {
+            id              : resultButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "=" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : oneButton.bottom
+                left        : dotButton.right
+            }
+            onClicked       : {
+                if (conversionMode == decimalMode) {
+                    evaluateExpression()
+                    updateFields()
                 }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "e+" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if ( (conversionMode == decimalMode) && ( /[0-9]$/.test(evalString) ) ) { appendToExpression("e+") }
-                }
+        YaLabelCalculator {
+            id              : eplusButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "e+" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : oneButton.bottom
+                left        : resultButton.right
             }
-
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "e-" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : {
-                    if ( (conversionMode == decimalMode) && ( /[0-9]$/.test(evalString) ) ) { appendToExpression("e-") }
-                }
+            onClicked       : {
+                if ( (conversionMode == decimalMode) && ( /[0-9]$/.test(evalString) ) ) { appendToExpression("e+") }
             }
+        }
 
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "answer" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode) { appendToExpression("(answer)") }
+        YaLabelCalculator {
+            id              : eminButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "e-" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : oneButton.bottom
+                left        : eplusButton.right
             }
-
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "√\n√=" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                lineHeightSize  : 0.6
-                onClicked       : {
-                    if (second.selected) {
-                        if ( (conversionMode == decimalMode) && (evalString != "") ) {
-                            evalString="V("+evalString+")"
-                            evaluateExpression()
-                        }
-                    } else { appendToExpression("V(")  }
-                }
+            onClicked       : {
+                if ( (conversionMode == decimalMode) && ( /[0-9]$/.test(evalString) ) ) { appendToExpression("e-") }
             }
+        }
 
-
-            YaLabelCalculator {
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? "x^y(x,y)  , ->" : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                onClicked       : if (conversionMode == decimalMode)
-                        { powerComma.selected=true ; powerComma.enabled=true ; appendToExpression("x^y(") }
+        YaLabelCalculator {
+            id              : answerButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "answer" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : zeroButton.bottom
+                left        : zeroButton.left
             }
+            onClicked       : if (conversionMode == decimalMode) { appendToExpression("(answer)") }
+        }
 
-            YaLabelCalculator {
-                id              : powerComma
-                enabled         : false
-                buttonText      : (conversionMode == decimalMode) ? "," : ""
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                pixelsizeoverridesize : isNxt ? 40 : 32
-                pixelsizeoverride     : true
-                onClicked       : if (conversionMode == decimalMode) { selected=false ; enabled=false ; appendToExpression(",") }
+        YaLabelCalculator {
+            id              : rootButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "√\n√=" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            lineHeightSize  : 0.6
+            anchors {
+                top         : zeroButton.bottom
+                left        : answerButton.right
             }
-
-            YaLabelCalculator {
-                id              : infoButton
-                enabled         : inputEnabled
-                buttonText      : (conversionMode == decimalMode) ? infoButtonbuttonText : (conversionMode == hexadecimalMode) ? "Hexadecimal" : "Binary"
-                textColor       : ( buttonText == "Calculator Info" ) ? "yellow" : "black"
-                width           : parent.width / gridColumns
-                height          : parent.height / gridRows
-                pixelsizeoverridesize : isNxt ? 15 : 12
-                pixelsizeoverride     : true
-                onClicked: {
-                    stage.openFullscreen(app.calculatorInfoUrl);
-                }
+            onClicked       : {
+                if (secondButtonSelected) {
+                    if ( (conversionMode == decimalMode) && (evalString != "") ) {
+                        evalString="V("+evalString+")"
+                        evaluateExpression()
+                    }
+                } else { appendToExpression("V(")  }
             }
+        }
 
+
+        YaLabelCalculator {
+            id              : powerButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? "x^y(x,y)  , ->" : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            anchors {
+                top         : zeroButton.bottom
+                left        : rootButton.right
+            }
+            onClicked       : if (conversionMode == decimalMode)
+                    { commaButton.selected=true ; commaButton.enabled=true ; appendToExpression("x^y(") }
+        }
+
+        YaLabelCalculator {
+            id              : commaButton
+            enabled         : false
+            buttonText      : (conversionMode == decimalMode) ? "," : ""
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            pixelsizeoverridesize : isNxt ? 40 : 32
+            pixelsizeoverride     : true
+            anchors {
+                top         : zeroButton.bottom
+                left        : powerButton.right
+            }
+            onClicked       : if (conversionMode == decimalMode) { selected=false ; enabled=false ; appendToExpression(",") }
+        }
+
+        YaLabelCalculator {
+            id              : infoButton
+            enabled         : inputEnabled
+            buttonText      : (conversionMode == decimalMode) ? infoButtonbuttonText : (conversionMode == hexadecimalMode) ? "Hexadecimal" : "Binary"
+            textColor       : ( buttonText == "Calculator Info" ) ? "yellow" : "black"
+            width           : parent.width / gridColumns
+            height          : parent.height / gridRows
+            pixelsizeoverridesize : isNxt ? 15 : 12
+            pixelsizeoverride     : true
+            anchors {
+                top         : zeroButton.bottom
+                left        : commaButton.right
+            }
+            onClicked: {
+                stage.openFullscreen(app.calculatorInfoUrl);
+            }
         }
 
     }
